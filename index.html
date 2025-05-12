@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rocket to the Moon - 2D Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #00001a; /* Deep space blue */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Inter', sans-serif;
+            color: #e0e0e0;
+        }
+        canvas {
+            display: block;
+            background-color: #00001a; 
+        }
+        #instruction-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 20, 0.85); 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: left;
+            z-index: 100;
+            padding: 20px;
+            box-sizing: border-box;
+            color: #f0f0f0;
+        }
+        #instruction-overlay h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #7DD3FC; 
+        }
+        #instruction-overlay h2 {
+            font-size: 20px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #A5F3FC;
+        }
+        #instruction-overlay p, #instruction-overlay ul {
+            font-size: 16px;
+            line-height: 1.6;
+            max-width: 600px;
+        }
+        #instruction-overlay ul {
+            list-style-type: disc;
+            padding-left: 25px;
+        }
+        #instruction-overlay li {
+            margin-bottom: 8px;
+        }
+        #instruction-overlay strong {
+            color: #FDE047; 
+        }
+        #start-mission-button {
+            margin-top: 30px;
+            padding: 12px 25px;
+            font-size: 18px;
+            background-color: #3B82F6; 
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        #start-mission-button:hover {
+            background-color: #2563EB; 
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 10;
+        }
+        .info-box-group-left { 
+            display: flex;
+            flex-direction: column;
+            gap: 10px; 
+        }
+        .info-box {
+            background-color: rgba(0, 0, 0, 0.6);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        #fuel-display { font-size: 16px; }
+        #stage-display { font-size: 14px; }
+        #time-display { font-size: 14px; } 
+
+        #message-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.85);
+            padding: 20px 30px;
+            border-radius: 10px;
+            font-size: 18px; 
+            line-height: 1.5;
+            text-align: center;
+            display: none; 
+            z-index: 20;
+            transition: opacity 0.5s ease-out;
+        }
+        #instructions { text-align: right; }
+        #sample-collection-ui {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            background-color: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+            z-index: 15;
+        }
+        #sample-progress-bar-container {
+            width: 100%; height: 20px; background-color: #555;
+            border-radius: 5px; margin-top: 5px; overflow: hidden;
+        }
+        #sample-progress-bar {
+            width: 0%; height: 100%; background-color: #4CAF50;
+            border-radius: 5px; transition: width 0.2s ease-out;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="instruction-overlay">
+        <h1>Rocket to the Moon: Mission Briefing</h1>
+        <h2>Mission Objectives:</h2>
+        <ul>
+            <li>Launch from Earth and navigate the asteroid belt.</li>
+            <li>Press <strong>'S'</strong> to separate Stage 1 (Booster) <strong>before</strong> attempting lunar orbit.</li>
+            <li><strong>Crucial:</strong> Only Stage 2 (Satellite) can achieve a stable orbit around the Moon.</li>
+            <li>Once in a stable lunar orbit, samples will be collected automatically.</li>
+            <li>Return the Satellite with samples to Earth's gravitational influence to win.</li>
+            <li>Your score is based on <strong>time taken</strong> and <strong>fuel remaining</strong>. Good luck, Commander!</li>
+        </ul>
+        <h2>Controls:</h2>
+        <ul>
+            <li><strong>Arrow Keys (Left/Right):</strong> Rotate Rocket/Satellite</li>
+            <li><strong>Spacebar:</strong> Activate Thrusters (consumes fuel)</li>
+            <li><strong>'S' Key:</strong> Separate Booster Stage</li>
+            <li><strong>'R' Key:</strong> Restart Game (at any time)</li>
+        </ul>
+        <button id="start-mission-button">Start Mission</button>
+    </div>
+
+    <div id="ui-container">
+        <div class="info-box-group-left">
+            <div id="fuel-display" class="info-box">Fuel: 100%</div>
+            <div id="stage-display" class="info-box">Stage: 1</div>
+            <div id="time-display" class="info-box">Time: 0s</div>
+        </div>
+        <div id="instructions" class="info-box">
+            Arrow Keys: Rotate<br>Spacebar: Thrust<br>'S': Separate Stage<br>Goal: Collect Samples & Return!
+        </div>
+    </div>
+    <div id="message-display"></div>
+    <div id="sample-collection-ui">
+        <div>Collecting Samples... (Orbiting Moon)</div>
+        <div id="sample-progress-bar-container">
+            <div id="sample-progress-bar"></div>
+        </div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const fuelDisplay = document.getElementById('fuel-display');
+        const stageDisplay = document.getElementById('stage-display');
+        const timeDisplay = document.getElementById('time-display'); 
+        const messageDisplay = document.getElementById('message-display');
+        const sampleCollectionUI = document.getElementById('sample-collection-ui');
+        const sampleProgressBar = document.getElementById('sample-progress-bar');
+        const instructionOverlay = document.getElementById('instruction-overlay');
+        const startMissionButton = document.getElementById('start-mission-button');
+
+        let width, height;
+        let earth, moon, rocket, booster;
+        let asteroids = [];
+        let particles = []; 
+        let starLayers = []; 
+        let rocketTrail = []; 
+
+        let keys = { left: false, right: false, space: false, s: false };
+        let gameState = 'beforeStart'; 
+        let orbitalStabilityTimer = 0; 
+        let messageTimeoutId = null;
+        let missionStartTime = 0; 
+        let elapsedTime = 0;    
+        let highScore = 0;      
+
+        const scoreConfig = { baseScore: 10000, timePenaltyPerSecond: 30, fuelBonusPerUnit: 75, localStorageKey: 'rocketToMoonHighScore' };
+        const earthRadiusBase = 40; const moonRadiusBase = 12; let dynamicOrbitRadius;
+        const moonOrbitSpeed = 0.005; const earthRotationSpeed = 0.0005;
+        const starConfig = { layerCount: 4, baseStarCount: 150, baseSpeedFactor: 0.02, depthFactorExponent: 1.5, maxStarSize: 1.5 };
+        const rocketConfig = { width: 8, satelliteHeight: 20, boosterHeight: 15, collisionRadiusFactor: 1.2, thrustForceStage1: 0.08, thrustForceStage2: 0.03, rotationSpeed: 0.05, maxFuelStage1: 200, maxFuelStage2: 80, fuelConsumeRateStage1: 0.5, fuelConsumeRateStage2: 0.15, gravityEarth: 0.015, gravityMoonConstant: 30, moonCaptureDistance: 50, moonOrbitDistance: 35, targetMoonOrbitSpeed: 0, escapeVelocityForOrbit: 1.5, orbitCorrectionFactor: 0.03, radialCorrectionFactor: 0.015, orbitDampingFactor: 0.985, boosterDriftFactor: 0.99, boosterFadeRate: 0.005, trailLength: 30, trailFadeSpeed: 0.05, separationForce: 0.2, separationParticleCount: 15, separationParticleSpeed: 0.8, separationParticleLifespan: 40, separationParticleColor: [200, 200, 200], orbitalStabilityDuration: 120, sampleCollectionDuration: 300, earthReturnProximityFactor: 1.8, landingDescentSpeed: 0.3, landingRotationSpeed: 0.03 };
+        rocketConfig.targetMoonOrbitSpeed = Math.sqrt(rocketConfig.gravityMoonConstant / rocketConfig.moonOrbitDistance);
+        const asteroidConfig = { numAsteroids: 25, minBeltRadiusFactor: 3.5, maxBeltRadiusFactor: 0.65, minSize: 6, maxSize: 20, minVertices: 5, maxVertices: 9, maxVertexJaggedness: 0.4, craterChance: 0.6, maxCraters: 3 };
+        const explosionConfig = { particleCount: 30, particleSpeed: 1.5, particleLifespan: 60, particleBaseColor: [255, 150, 50] };
+        
+        const sun = {
+            worldX: -10000, 
+            worldY: -5000,  
+            glareColor1: 'rgba(255, 255, 220, 0.15)', 
+            glareColor2: 'rgba(255, 255, 200, 0.1)',  
+            glareColor3: 'rgba(255, 255, 180, 0.05)', 
+            glareBaseSize: 300,
+            glareMaxScreenDist: 800 
+        };
+
+        const earthColors = { ocean: '#3B82F6', land1: '#22C55E', land2: '#16A34A', atmosphereBase: [173, 216, 230], shadow: 'rgba(0,0,0,0.35)' };
+        const moonColors = { surface: '#A0AEC0', crater1: '#718096', crater2: '#4A5568', shadow: 'rgba(0,0,0,0.4)' };
+        const asteroidColors = ['#78716C', '#84776F', '#6E655F']; const asteroidStrokeColor = '#57534E'; const asteroidCraterColor = 'rgba(0,0,0,0.2)';
+
+        function initializeGameElements() { 
+            dynamicOrbitRadius = Math.min(width, height) * 0.48;
+            dynamicOrbitRadius = Math.max(dynamicOrbitRadius, earthRadiusBase * 7);
+            earth = { 
+                x: width / 2, y: height / 2, radius: earthRadiusBase, angle: 0, 
+                continents: [ { angle: 0.5, arc: 1.2, dist: 0.7, size: 0.9, color: earthColors.land1 }, { angle: 2.0, arc: 1.0, dist: 0.6, size: 0.7, color: earthColors.land2 }, { angle: 3.8, arc: 1.5, dist: 0.65, size: 0.8, color: earthColors.land1 }, { angle: 5.5, arc: 0.8, dist: 0.5, size: 0.6, color: earthColors.land2 } ],
+                atmospherePulseAngle: 0, atmospherePulseSpeed: 0.035, 
+                atmospherePulseMagnitude: 0.15, atmosphereBaseOffsetFactor: 0.5 
+            };
+            moon = { angle: Math.random() * Math.PI * 2, radius: moonRadiusBase, x: 0, y: 0, craters: [ { x: -0.3, y: 0.2, r: 0.3, color: moonColors.crater1 }, { x: 0.4, y: -0.1, r: 0.25, color: moonColors.crater2 }, { x: 0.1, y: 0.5, r: 0.2, color: moonColors.crater1 } ] };
+            updateMoonPosition(); 
+            rocket = { 
+                x: earth.x, y: earth.y - earth.radius - (rocketConfig.satelliteHeight / 2 + rocketConfig.boosterHeight), 
+                vx: 0, vy: 0, angle: -Math.PI / 2, 
+                fuel: rocketConfig.maxFuelStage1, 
+                isThrusting: false, landedOnEarth: true, 
+                currentStage: 1, 
+                height: rocketConfig.satelliteHeight + rocketConfig.boosterHeight, 
+                visible: true,
+                sampleCollectionProgress: 0 
+            };
+            booster = null;
+            asteroids = [];
+            particles = []; 
+            rocketTrail = [];
+            generateAsteroids(); 
+            messageDisplay.style.display = 'none'; 
+            sampleCollectionUI.style.display = 'none'; 
+            updateFuelDisplay(); 
+            updateStageDisplay();
+            missionStartTime = 0; 
+            elapsedTime = 0;
+            timeDisplay.textContent = "Time: 0s";
+            highScore = parseInt(localStorage.getItem(scoreConfig.localStorageKey)) || 0; 
+        }
+
+        function setupCanvas() {
+            width = window.innerWidth; height = window.innerHeight;
+            canvas.width = width; canvas.height = height;
+            if (starLayers.length === 0) { generateStarLayers(); }
+            initializeGameElements(); 
+        }
+        
+        function generateStarLayers() { starLayers = []; for (let i = 0; i < starConfig.layerCount; i++) { const layer = { stars: [], speedFactorMultiplier: Math.pow(starConfig.layerCount - i, starConfig.depthFactorExponent), starSizeMultiplier: 1 - (i / starConfig.layerCount) * 0.7 }; const numLayerStars = Math.floor(starConfig.baseStarCount * (1 + i * 0.5)); for (let j = 0; j < numLayerStars; j++) { layer.stars.push({ x: Math.random() * width, y: Math.random() * height, radius: Math.random() * starConfig.maxStarSize * layer.starSizeMultiplier + 0.2, opacity: Math.random() * 0.6 + 0.2 }); } starLayers.push(layer); } }
+        function generateAsteroids() { asteroids = []; const beltInnerRadius = earth.radius * asteroidConfig.minBeltRadiusFactor; let beltOuterRadius = dynamicOrbitRadius * asteroidConfig.maxBeltRadiusFactor; if (beltOuterRadius <= beltInnerRadius + (asteroidConfig.maxSize * 2)) { beltOuterRadius = beltInnerRadius + Math.max(dynamicOrbitRadius * 0.1, asteroidConfig.maxSize * 5); } if (beltInnerRadius >= beltOuterRadius) { return; } for (let i = 0; i < asteroidConfig.numAsteroids; i++) { const angle = Math.random() * Math.PI * 2; const dist = beltInnerRadius + Math.random() * (beltOuterRadius - beltInnerRadius); const x = earth.x + Math.cos(angle) * dist; const y = earth.y + Math.sin(angle) * dist; const radius = asteroidConfig.minSize + Math.random() * (asteroidConfig.maxSize - asteroidConfig.minSize); const GM_earth_for_asteroids = rocketConfig.gravityEarth * earth.radius * earth.radius * 5; let speedMagnitude = Math.sqrt(GM_earth_for_asteroids / dist); speedMagnitude *= (1 + (Math.random() - 0.5) * 0.10); const numVertices = Math.floor(asteroidConfig.minVertices + Math.random() * (asteroidConfig.maxVertices - asteroidConfig.minVertices + 1)); const points = []; for (let j = 0; j < numVertices; j++) { const vAngle = (j / numVertices) * Math.PI * 2; const vRadius = radius * (1 - Math.random() * asteroidConfig.maxVertexJaggedness); points.push({ x: Math.cos(vAngle) * vRadius, y: Math.sin(vAngle) * vRadius }); } const tangentAngle = angle + Math.PI / 2; const astCraters = []; if (Math.random() < asteroidConfig.craterChance) { const numAstCraters = Math.floor(Math.random() * asteroidConfig.maxCraters) + 1; for(let k=0; k < numAstCraters; k++) { astCraters.push({ x: (Math.random() - 0.5) * radius * 0.6, y: (Math.random() - 0.5) * radius * 0.6, r: radius * (Math.random() * 0.15 + 0.1) }); } } asteroids.push({ x: x, y: y, vx: Math.cos(tangentAngle) * speedMagnitude, vy: Math.sin(tangentAngle) * speedMagnitude, angle: Math.random() * Math.PI * 2, rotationSpeed: (Math.random() - 0.5) * 0.01, radius: radius, points: points, color: asteroidColors[Math.floor(Math.random() * asteroidColors.length)], strokeColor: asteroidStrokeColor, craters: astCraters }); } }
+        function updateMoonPosition() { moon.x = earth.x + Math.cos(moon.angle) * dynamicOrbitRadius; moon.y = earth.y + Math.sin(moon.angle) * dynamicOrbitRadius; }
+
+        // --- Drawing Functions ---
+        function drawParallaxBackground(viewOffsetX, viewOffsetY) { starLayers.forEach((layer, index) => { const parallaxSpeed = starConfig.baseSpeedFactor * layer.speedFactorMultiplier; layer.stars.forEach(star => { const starX = (star.x - viewOffsetX * parallaxSpeed); const starY = (star.y - viewOffsetY * parallaxSpeed); const wrappedX = (starX % width + width) % width; const wrappedY = (starY % height + height) % height; ctx.beginPath(); ctx.arc(wrappedX, wrappedY, star.radius, 0, Math.PI * 2); ctx.fillStyle = `rgba(255, 255, 224, ${star.opacity * (Math.random() * 0.3 + 0.7)})`; ctx.fill(); }); }); }
+        
+        function getDynamicLightSource(objectX, objectY) {
+            const dx = sun.worldX - objectX;
+            const dy = sun.worldY - objectY;
+            const mag = Math.sqrt(dx*dx + dy*dy);
+            if (mag === 0) return { x: -1, y: 0 }; 
+            return { x: dx / mag, y: dy / mag };
+        }
+
+        function drawShadedCircle(objX, objY, radius, baseColor, shadowColor) {
+            const light = getDynamicLightSource(objX, objY); 
+            ctx.save();
+            ctx.translate(objX, objY); 
+
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fillStyle = baseColor;
+            ctx.fill();
+
+            const lightAngle = Math.atan2(light.y, light.x); 
+            ctx.save();
+            ctx.rotate(lightAngle + Math.PI); 
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, -Math.PI / 2, Math.PI / 2, false);
+            const crescentPullFactor = 0.6; 
+            const innerArcCenterX = -radius * crescentPullFactor; 
+            ctx.arc(innerArcCenterX, 0, radius, Math.PI / 2, -Math.PI / 2, true); 
+            ctx.closePath();
+            ctx.fillStyle = shadowColor;
+            ctx.fill();
+            ctx.restore(); 
+
+            const specularSize = radius * 0.15;
+            const specularX = -light.x * radius * 0.5; 
+            const specularY = -light.y * radius * 0.5;
+            ctx.beginPath();
+            ctx.arc(specularX, specularY, specularSize, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)'; 
+            ctx.fill();
+
+            ctx.restore(); 
+        }
+
+        function drawEarth() {
+            earth.atmospherePulseAngle += earth.atmospherePulseSpeed;
+            if (earth.atmospherePulseAngle > Math.PI * 2) { earth.atmospherePulseAngle -= Math.PI * 2; }
+            const pulseSin = Math.sin(earth.atmospherePulseAngle); 
+            const atmospherePulseFactor = 1 + pulseSin * earth.atmospherePulseMagnitude;
+            const atmosphereCurrentOffset = earth.radius * earth.atmosphereBaseOffsetFactor * atmospherePulseFactor;
+            const baseAlpha = 0.05;
+            const pulseAlphaRange = 0.20; 
+            const currentAtmosphereAlpha = baseAlpha + ((1 + pulseSin) / 2) * pulseAlphaRange * (1 + earth.atmospherePulseMagnitude); 
+            const pulsedAtmosphereColor = `rgba(${earthColors.atmosphereBase[0]}, ${earthColors.atmosphereBase[1]}, ${earthColors.atmosphereBase[2]}, ${Math.max(0, Math.min(1, currentAtmosphereAlpha))})`;
+            
+            ctx.save();
+            ctx.translate(earth.x, earth.y);
+            ctx.beginPath();
+            ctx.arc(0, 0, earth.radius + atmosphereCurrentOffset, 0, Math.PI * 2);
+            const atmosphereGradient = ctx.createRadialGradient(0, 0, earth.radius, 0, 0, earth.radius + atmosphereCurrentOffset);
+            atmosphereGradient.addColorStop(0, 'rgba(173, 216, 230, 0)'); 
+            atmosphereGradient.addColorStop(0.7, pulsedAtmosphereColor);    
+            atmosphereGradient.addColorStop(1, 'rgba(173, 216, 230, 0)');   
+            ctx.fillStyle = atmosphereGradient;
+            ctx.fill();
+            ctx.restore(); 
+
+            drawShadedCircle(earth.x, earth.y, earth.radius, earthColors.ocean, earthColors.shadow);
+            
+            ctx.save();
+            ctx.translate(earth.x, earth.y);
+            earth.angle += earthRotationSpeed; 
+            ctx.rotate(earth.angle);
+            earth.continents.forEach(cont => { 
+                ctx.beginPath(); 
+                const x = Math.cos(cont.angle) * earth.radius * cont.dist; 
+                const y = Math.sin(cont.angle) * earth.radius * cont.dist; 
+                ctx.ellipse(x, y, earth.radius * 0.3 * cont.size, earth.radius * 0.4 * cont.size, cont.angle / 2, 0, Math.PI * cont.arc); 
+                ctx.fillStyle = cont.color; ctx.fill(); 
+            });
+            ctx.restore(); 
+        }
+
+        function drawMoon() {
+            drawShadedCircle(moon.x, moon.y, moon.radius, moonColors.surface, moonColors.shadow);
+            ctx.save();
+            ctx.translate(moon.x, moon.y); 
+            moon.craters.forEach(crater => { 
+                ctx.beginPath(); 
+                ctx.arc(crater.x * moon.radius, crater.y * moon.radius, crater.r * moon.radius, 0, Math.PI * 2); 
+                ctx.fillStyle = crater.color; 
+                ctx.fill(); 
+            });
+            ctx.restore(); 
+        }
+
+        function drawAsteroids() { 
+            asteroids.forEach(ast => {
+                const light = getDynamicLightSource(ast.x, ast.y);
+                ctx.save();
+                ctx.translate(ast.x, ast.y); 
+                ctx.rotate(ast.angle);
+
+                ctx.beginPath();
+                ctx.moveTo(ast.points[0].x, ast.points[0].y);
+                for (let i = 1; i < ast.points.length; i++) { ctx.lineTo(ast.points[i].x, ast.points[i].y); }
+                ctx.closePath();
+                ctx.fillStyle = ast.strokeColor; 
+                ctx.fill();
+
+                const lightOffsetX = ast.radius * 0.15 * light.x; 
+                const lightOffsetY = ast.radius * 0.15 * light.y;
+                
+                ctx.save(); 
+                ctx.translate(-lightOffsetX, -lightOffsetY); 
+                ctx.beginPath();
+                ctx.moveTo(ast.points[0].x, ast.points[0].y);
+                for (let i = 1; i < ast.points.length; i++) { ctx.lineTo(ast.points[i].x, ast.points[i].y); }
+                ctx.closePath();
+                ctx.fillStyle = ast.color;
+                ctx.fill();
+                ctx.strokeStyle = ast.strokeColor;
+                ctx.lineWidth = 1; 
+                ctx.stroke(); 
+                ctx.restore(); 
+                
+                ast.craters.forEach(crater => {
+                    ctx.beginPath();
+                    ctx.arc(crater.x, crater.y, crater.r, 0, Math.PI * 2);
+                    ctx.fillStyle = asteroidCraterColor;
+                    ctx.fill();
+                });
+                ctx.restore(); 
+            });
+        }
+        
+        function drawRocketTrail() { for (let i = 0; i < rocketTrail.length; i++) { const point = rocketTrail[i]; const trailColor = rocket.currentStage === 1 ? `rgba(255, 200, 100, ${point.opacity})` : `rgba(150, 200, 255, ${point.opacity})`; ctx.beginPath(); ctx.arc(point.x, point.y, point.size * (i / rocketTrail.length + 0.2) , 0, Math.PI * 2); ctx.fillStyle = trailColor; ctx.fill(); } }
+        
+        function drawRocket() {
+            if (!rocket.visible) return;
+            const light = getDynamicLightSource(rocket.x, rocket.y);
+
+            ctx.save();
+            ctx.translate(rocket.x, rocket.y);
+            ctx.rotate(rocket.angle + Math.PI / 2); 
+            const satHeight = rocketConfig.satelliteHeight; const satWidth = rocketConfig.width;
+            const noseConeHeight = satHeight * 0.3; const bodyHeight = satHeight * 0.7;
+            const boostHeight = rocketConfig.boosterHeight; const boostWidth = rocketConfig.width * 1.2;
+            const finHeight = boostHeight * 0.3; 
+            
+            const mainSatColor = '#E0E0E0'; 
+            const shadowSatColor = '#A0A0A0'; 
+            const boosterMainColor = '#C0C0C0'; 
+            const boosterShadowColor = '#888888';
+            const noseConeColor = '#F0A0A0';
+
+            const shadowDirX = -light.x;
+            const shadowDirY = -light.y;
+            const shadowOffsetMagnitude = 1.5;
+
+            if (rocket.currentStage === 1) {
+                const boosterBaseY = bodyHeight / 2;
+                ctx.fillStyle = boosterShadowColor; ctx.beginPath();
+                ctx.rect(-boostWidth / 2 + shadowDirX * shadowOffsetMagnitude, boosterBaseY + shadowDirY * shadowOffsetMagnitude, boostWidth, boostHeight);
+                ctx.fill();
+                ctx.fillStyle = boosterMainColor; ctx.beginPath();
+                ctx.rect(-boostWidth / 2, boosterBaseY, boostWidth, boostHeight); ctx.fill();
+                ctx.fillStyle = boosterMainColor; ctx.beginPath();
+                ctx.moveTo(boostWidth / 2, boosterBaseY + boostHeight * 0.6); ctx.lineTo(boostWidth / 2 + finHeight, boosterBaseY + boostHeight); ctx.lineTo(boostWidth / 2, boosterBaseY + boostHeight); ctx.closePath(); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-boostWidth / 2, boosterBaseY + boostHeight * 0.6); ctx.lineTo(-boostWidth / 2 - finHeight, boosterBaseY + boostHeight); ctx.lineTo(-boostWidth / 2, boosterBaseY + boostHeight); ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = '#6B7280'; ctx.lineWidth = 1; ctx.strokeRect(-boostWidth / 2, boosterBaseY, boostWidth, boostHeight);
+                ctx.beginPath(); ctx.moveTo(boostWidth / 2, boosterBaseY + boostHeight * 0.6); ctx.lineTo(boostWidth / 2 + finHeight, boosterBaseY + boostHeight); ctx.lineTo(boostWidth / 2, boosterBaseY + boostHeight); ctx.moveTo(-boostWidth / 2, boosterBaseY + boostHeight * 0.6); ctx.lineTo(-boostWidth / 2 - finHeight, boosterBaseY + boostHeight); ctx.lineTo(-boostWidth / 2, boosterBaseY + boostHeight); ctx.stroke();
+            }
+            const satTopY = -satHeight / 2; const satBodyTopY = satTopY + noseConeHeight;
+            ctx.fillStyle = shadowSatColor; ctx.beginPath();
+            ctx.rect(-satWidth / 2 + shadowDirX * shadowOffsetMagnitude, satBodyTopY + shadowDirY * shadowOffsetMagnitude, satWidth, bodyHeight);
+            ctx.fill();
+            ctx.fillStyle = mainSatColor; ctx.beginPath();
+            ctx.rect(-satWidth / 2, satBodyTopY, satWidth, bodyHeight); ctx.fill();
+            ctx.strokeStyle = '#9CA3AF'; ctx.lineWidth = 1; ctx.strokeRect(-satWidth / 2, satBodyTopY, satWidth, bodyHeight);
+            ctx.fillStyle = noseConeColor; ctx.beginPath();
+            ctx.moveTo(0, satTopY - 2); ctx.lineTo(-satWidth / 2, satBodyTopY); ctx.lineTo(satWidth / 2, satBodyTopY); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = '#D08080'; ctx.lineWidth = 0.5; ctx.stroke();
+
+            const specularX = -light.x * satWidth * 0.2; 
+            const specularY = (satTopY + satBodyTopY) / 2 - light.y * noseConeHeight * 0.3; 
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.beginPath();
+            ctx.ellipse(specularX, specularY, satWidth * 0.15, satWidth * 0.1, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            if (rocket.isThrusting && rocket.fuel > 0 && (gameState === 'playing' || gameState === 'returningToEarth' || gameState === 'landingOnEarth')) { const flameBaseY = (rocket.currentStage === 1) ? (bodyHeight / 2 + boostHeight) : (bodyHeight / 2); const flameWidth = ((rocket.currentStage === 1) ? boostWidth : satWidth) * (gameState === 'landingOnEarth' ? 0.5 : 0.9); const flameLengthOuter = (gameState === 'landingOnEarth' ? 10 : 20) + Math.random() * (gameState === 'landingOnEarth' ? 5 : 15); const flameLengthInner = flameLengthOuter * (0.6 + Math.random() * 0.2); ctx.fillStyle = `rgba(255, ${100 + Math.random() * 50}, 0, ${0.3 + Math.random() * 0.3})`; ctx.beginPath(); ctx.moveTo(0, flameBaseY); ctx.lineTo(-flameWidth / 2, flameBaseY + flameLengthOuter); ctx.lineTo(flameWidth / 2, flameBaseY + flameLengthOuter); ctx.closePath(); ctx.fill(); ctx.fillStyle = `rgba(255, 255, ${180 + Math.random() * 50}, ${0.6 + Math.random() * 0.3})`; ctx.beginPath(); ctx.moveTo(0, flameBaseY); ctx.lineTo(-flameWidth / 3.5, flameBaseY + flameLengthInner); ctx.lineTo(flameWidth / 3.5, flameBaseY + flameLengthInner); ctx.closePath(); ctx.fill(); }
+            ctx.restore();
+        }
+
+        function drawBooster() { 
+            if (!booster || booster.opacity <= 0) return; 
+            const light = getDynamicLightSource(booster.x, booster.y);
+            ctx.save(); 
+            ctx.translate(booster.x, booster.y); 
+            ctx.rotate(booster.angle + Math.PI / 2); 
+            ctx.globalAlpha = booster.opacity; 
+            const boostHeight = rocketConfig.boosterHeight; const boostWidth = rocketConfig.width * 1.2; 
+            const finHeight = boostHeight * 0.3; 
+            const shadowOffsetMagnitude = 1.5;
+            const shadowDirX = -light.x;
+            const shadowDirY = -light.y;
+            const boosterMainColor = '#C0C0C0'; const boosterShadowColor = '#888888'; 
+            
+            ctx.fillStyle = boosterShadowColor; ctx.beginPath(); 
+            ctx.rect(-boostWidth / 2 + shadowDirX * shadowOffsetMagnitude, -boostHeight/2 + shadowDirY * shadowOffsetMagnitude, boostWidth, boostHeight); 
+            ctx.fill();
+            ctx.fillStyle = boosterMainColor; ctx.beginPath(); 
+            ctx.rect(-boostWidth / 2, -boostHeight/2, boostWidth, boostHeight); ctx.fill(); 
+            ctx.beginPath(); ctx.moveTo(boostWidth / 2, boostHeight/2 - boostHeight * 0.4); ctx.lineTo(boostWidth / 2 + finHeight, boostHeight/2); ctx.lineTo(boostWidth / 2, boostHeight/2); ctx.moveTo(-boostWidth / 2, boostHeight/2 - boostHeight * 0.4); ctx.lineTo(-boostWidth / 2 - finHeight, boostHeight/2); ctx.lineTo(-boostWidth / 2, boostHeight/2); ctx.fillStyle = boosterMainColor; ctx.fill(); 
+            ctx.strokeStyle = '#6B7280'; ctx.lineWidth = 1; 
+            ctx.strokeRect(-boostWidth / 2, -boostHeight/2, boostWidth, boostHeight); 
+            ctx.beginPath(); ctx.moveTo(boostWidth / 2, boostHeight/2 - boostHeight * 0.4); ctx.lineTo(boostWidth / 2 + finHeight, boostHeight/2); ctx.lineTo(boostWidth / 2, boostHeight/2); ctx.moveTo(-boostWidth / 2, boostHeight/2 - boostHeight * 0.4); ctx.lineTo(-boostWidth / 2 - finHeight, boostHeight/2); ctx.lineTo(-boostWidth / 2, boostHeight/2); ctx.stroke(); 
+            ctx.restore(); 
+        }
+        function drawParticles() { particles.forEach(p => { ctx.fillStyle = `rgba(${p.color[0]}, ${p.color[1]}, ${p.color[2]}, ${p.opacity})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); }); }
+
+        function drawSunGlare(viewOffsetX, viewOffsetY) {
+            const sunScreenX = sun.worldX - viewOffsetX;
+            const sunScreenY = sun.worldY - viewOffsetY;
+            const distToScreenCenter = Math.sqrt(Math.pow(sunScreenX - width/2, 2) + Math.pow(sunScreenY - height/2, 2));
+            if (distToScreenCenter < sun.glareMaxScreenDist) { 
+                const glareOpacityFactor = 1 - (distToScreenCenter / sun.glareMaxScreenDist);
+                if (glareOpacityFactor <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = glareOpacityFactor * 0.7;
+                ctx.fillStyle = sun.glareColor1;
+                ctx.beginPath();
+                ctx.arc(sunScreenX, sunScreenY, sun.glareBaseSize * glareOpacityFactor, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = glareOpacityFactor * 0.5;
+                ctx.fillStyle = sun.glareColor2;
+                ctx.beginPath();
+                ctx.arc(sunScreenX, sunScreenY, sun.glareBaseSize * 0.6 * glareOpacityFactor, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = glareOpacityFactor * 0.3;
+                ctx.strokeStyle = sun.glareColor3;
+                ctx.lineWidth = 2 + 3 * glareOpacityFactor;
+                for (let i = 0; i < 8; i++) { 
+                    const angle = (i / 8) * Math.PI * 2;
+                    const length = sun.glareBaseSize * 0.8 * glareOpacityFactor * (0.5 + Math.random()*0.5);
+                    ctx.beginPath();
+                    ctx.moveTo(sunScreenX, sunScreenY);
+                    ctx.lineTo(sunScreenX + Math.cos(angle) * length, sunScreenY + Math.sin(angle) * length);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+        }
+
+        // --- Game Logic & Updates (mostly unchanged) ---
+        function createParticles(x, y, count, speed, lifespan, color, type = 'explosion') { for (let i = 0; i < count; i++) { particles.push({ x: x, y: y, vx: (Math.random() - 0.5) * speed * 2, vy: (Math.random() - 0.5) * speed * 2, size: Math.random() * (type === 'separation' ? 1.5 : 2.5) + 1, opacity: 1, lifespan: lifespan + Math.random() * (lifespan * 0.3), color: color, type: type }); } }
+        function updateParticles() { for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.x += p.vx; p.y += p.vy; p.lifespan--; const baseLifespan = p.type === 'separation' ? rocketConfig.separationParticleLifespan : explosionConfig.particleLifespan; p.opacity = p.lifespan / baseLifespan; if (p.lifespan <= 0) { particles.splice(i, 1); } } }
+        function handleStageSeparation() { if (rocket.currentStage === 1 && keys.s) { const separationPointX = rocket.x + Math.cos(rocket.angle) * (rocketConfig.satelliteHeight / 2); const separationPointY = rocket.y + Math.sin(rocket.angle) * (rocketConfig.satelliteHeight / 2); createParticles(separationPointX, separationPointY, rocketConfig.separationParticleCount, rocketConfig.separationParticleSpeed, rocketConfig.separationParticleLifespan, rocketConfig.separationParticleColor, 'separation'); booster = { x: rocket.x + Math.cos(rocket.angle) * (rocketConfig.satelliteHeight/2 + rocketConfig.boosterHeight/2), y: rocket.y + Math.sin(rocket.angle) * (rocketConfig.satelliteHeight/2 + rocketConfig.boosterHeight/2), vx: rocket.vx + Math.cos(rocket.angle + Math.PI) * rocketConfig.separationForce, vy: rocket.vy + Math.sin(rocket.angle + Math.PI) * rocketConfig.separationForce, angle: rocket.angle, rotationSpeed: (Math.random() - 0.5) * 0.03, opacity: 1.0 }; rocket.currentStage = 2; rocket.fuel = rocketConfig.maxFuelStage2; rocket.height = rocketConfig.satelliteHeight; rocket.vx += Math.cos(rocket.angle) * rocketConfig.separationForce * 0.5; rocket.vy += Math.sin(rocket.angle) * rocketConfig.separationForce * 0.5; rocket.x -= Math.cos(rocket.angle) * (rocketConfig.boosterHeight / 2); rocket.y -= Math.sin(rocket.angle) * (rocketConfig.boosterHeight / 2); updateFuelDisplay(); updateStageDisplay(); keys.s = false; } }
+        function updateBooster() { if (!booster || booster.opacity <= 0) return; booster.x += booster.vx; booster.y += booster.vy; booster.angle += booster.rotationSpeed; booster.vx *= rocketConfig.boosterDriftFactor; booster.vy *= rocketConfig.boosterDriftFactor; booster.opacity -= rocketConfig.boosterFadeRate; if (booster.opacity < 0) booster.opacity = 0; }
+        function updateAsteroids() { asteroids.forEach(ast => { const dxEarth = earth.x - ast.x; const dyEarth = earth.y - ast.y; const distEarthSq = dxEarth * dxEarth + dyEarth * dyEarth; if (distEarthSq > 1) { const distEarth = Math.sqrt(distEarthSq); const GM_earth_for_asteroids = rocketConfig.gravityEarth * earth.radius * earth.radius * 5; const gravityMagnitude = GM_earth_for_asteroids / distEarthSq; ast.vx += (dxEarth / distEarth) * gravityMagnitude; ast.vy += (dyEarth / distEarth) * gravityMagnitude; } ast.x += ast.vx; ast.y += ast.vy; ast.angle += ast.rotationSpeed; }); }
+        function updateRocketTrail() { if (rocket.visible && (rocket.isThrusting || gameState === 'orbitingMoon' || gameState === 'returningToEarth' || gameState === 'landingOnEarth')) { rocketTrail.unshift({ x: rocket.x + Math.cos(rocket.angle + Math.PI) * (rocket.height / 2), y: rocket.y + Math.sin(rocket.angle + Math.PI) * (rocket.height / 2), opacity: 0.8, size: rocket.currentStage === 1 ? 2.5 : 1.5 }); } if (rocketTrail.length > rocketConfig.trailLength) { rocketTrail.pop(); } for (let i = rocketTrail.length - 1; i >= 0; i--) { rocketTrail[i].opacity -= rocketConfig.trailFadeSpeed; if (rocketTrail[i].opacity <= 0) { rocketTrail.splice(i, 1); } } }
+        function checkCollisions() { if (gameState === 'gameOver' || gameState === 'missionSuccess') return false; if (rocket.visible) { for (const ast of asteroids) { const dx = rocket.x - ast.x; const dy = rocket.y - ast.y; const distSq = dx * dx + dy * dy; const rocketEffectiveRadius = rocketConfig.width * rocketConfig.collisionRadiusFactor; const collisionDist = ast.radius + rocketEffectiveRadius; if (distSq < collisionDist * collisionDist) { if (gameState !== 'gameOver') { createParticles(rocket.x, rocket.y, explosionConfig.particleCount, explosionConfig.particleSpeed, explosionConfig.particleLifespan, explosionConfig.particleBaseColor, 'explosion'); rocket.visible = false; gameState = 'gameOver'; showTimedMessage("Crashed into an asteroid!", false, 0, true); } return true; } } } if (booster && booster.opacity > 0) { for (const ast of asteroids) { const dx = booster.x - ast.x; const dy = booster.y - ast.y; const distSq = dx * dx + dy * dy; const boosterEffectiveRadius = (rocketConfig.width * 1.2) * rocketConfig.collisionRadiusFactor; const collisionDist = ast.radius + boosterEffectiveRadius; if (distSq < collisionDist * collisionDist) { createParticles(booster.x, booster.y, explosionConfig.particleCount / 2, explosionConfig.particleSpeed, explosionConfig.particleLifespan, explosionConfig.particleBaseColor, 'explosion'); booster.opacity = 0; break; } } } return false; }
+        function updateRocket() { if (!rocket.visible || (gameState !== 'playing' && gameState !== 'returningToEarth')) return; if (gameState === 'playing') handleStageSeparation(); rocket.isThrusting = keys.space && rocket.fuel > 0; if (keys.left) rocket.angle -= rocketConfig.rotationSpeed; if (keys.right) rocket.angle += rocketConfig.rotationSpeed; const currentThrust = rocket.currentStage === 1 ? rocketConfig.thrustForceStage1 : rocketConfig.thrustForceStage2; const currentFuelConsumeRate = rocket.currentStage === 1 ? rocketConfig.fuelConsumeRateStage1 : rocketConfig.fuelConsumeRateStage2; if (rocket.isThrusting) { rocket.vx += Math.cos(rocket.angle) * currentThrust; rocket.vy += Math.sin(rocket.angle) * currentThrust; rocket.fuel -= currentFuelConsumeRate; if (rocket.fuel < 0) rocket.fuel = 0; rocket.landedOnEarth = false; updateFuelDisplay(); } if (!rocket.landedOnEarth) { const dxEarth = earth.x - rocket.x; const dyEarth = earth.y - rocket.y; const distEarthSq = dxEarth * dxEarth + dyEarth * dyEarth; const distEarth = Math.sqrt(distEarthSq); if (distEarth > earth.radius || gameState === 'returningToEarth') { const forceDirX = dxEarth / distEarth; const forceDirY = dyEarth / distEarth; const gravityMagnitude = rocketConfig.gravityEarth * (earth.radius * earth.radius) / Math.max(distEarthSq, earth.radius * earth.radius * 0.5); rocket.vx += forceDirX * gravityMagnitude; rocket.vy += forceDirY * gravityMagnitude; } if (gameState === 'returningToEarth' && distEarth < earth.radius * rocketConfig.earthReturnProximityFactor) { gameState = 'landingOnEarth'; rocket.isThrusting = true; showTimedMessage("Initiating landing sequence...", false, 2000); return; } else if (gameState === 'playing' && distEarth <= earth.radius + rocket.height / 2 && !rocket.isThrusting) { rocket.vx = 0; rocket.vy = 0; const angleToEarthCenter = Math.atan2(rocket.y - earth.y, rocket.x - earth.x); const onSurfaceYOffset = rocket.currentStage === 1 ? (rocketConfig.satelliteHeight / 2 + rocketConfig.boosterHeight) : rocketConfig.satelliteHeight / 2; rocket.x = earth.x + Math.cos(angleToEarthCenter) * (earth.radius + onSurfaceYOffset); rocket.y = earth.y + Math.sin(angleToEarthCenter) * (earth.radius + onSurfaceYOffset); rocket.angle = angleToEarthCenter + Math.PI / 2; rocket.landedOnEarth = true; } if (gameState !== 'returningToEarth') { const vecRocketToMoonX = moon.x - rocket.x; const vecRocketToMoonY = moon.y - rocket.y; const distRocketToMoonSq = vecRocketToMoonX * vecRocketToMoonX + vecRocketToMoonY * vecRocketToMoonY; if (distRocketToMoonSq > 1) { const distRocketToMoon = Math.sqrt(distRocketToMoonSq); const moonForceMagnitude = rocketConfig.gravityMoonConstant / distRocketToMoonSq; rocket.vx += (vecRocketToMoonX / distRocketToMoon) * moonForceMagnitude; rocket.vy += (vecRocketToMoonY / distRocketToMoon) * moonForceMagnitude; } } rocket.x += rocket.vx; rocket.y += rocket.vy; if (gameState === 'playing' && rocket.currentStage === 2) { const vecRocketToMoonX = moon.x - rocket.x; const vecRocketToMoonY = moon.y - rocket.y; const distRocketToMoonSq = vecRocketToMoonX * vecRocketToMoonX + vecRocketToMoonY * vecRocketToMoonY; const rocketSpeed = Math.sqrt(rocket.vx * rocket.vx + rocket.vy * rocket.vy); const currentDistToMoonSurface = Math.sqrt(distRocketToMoonSq) - moon.radius; if (currentDistToMoonSurface < rocketConfig.moonCaptureDistance && rocketSpeed < rocketConfig.escapeVelocityForOrbit) { gameState = 'orbitingMoon'; orbitalStabilityTimer = 0; showTimedMessage("Approaching Lunar Orbit...", false, 2000); } } } if (rocket.fuel <= 0 && !rocket.isThrusting && (gameState === 'playing' || gameState === 'returningToEarth')) { const distFromEarthCenter = Math.sqrt(Math.pow(rocket.x - earth.x, 2) + Math.pow(rocket.y - earth.y, 2)); if (distFromEarthCenter > dynamicOrbitRadius * 1.8 || (gameState === 'returningToEarth' && distFromEarthCenter > earth.radius * (rocketConfig.earthReturnProximityFactor + 0.5) )) { createParticles(rocket.x, rocket.y, explosionConfig.particleCount / 3, explosionConfig.particleSpeed, explosionConfig.particleLifespan, explosionConfig.particleBaseColor, 'explosion'); rocket.visible = false; gameState = 'gameOver'; showTimedMessage(gameState === 'returningToEarth' ? "Lost on return journey!" : "Out of fuel and lost in space!", false, 0, true); } } updateRocketTrail(); }
+        function updateRocketOrbitingMoon() { if (gameState !== 'orbitingMoon' || rocket.currentStage !== 2 || !rocket.visible) return; orbitalStabilityTimer++; if (orbitalStabilityTimer > rocketConfig.orbitalStabilityDuration) { gameState = 'collectingSamples'; rocket.sampleCollectionProgress = 0; sampleCollectionUI.style.display = 'block'; messageDisplay.style.display = 'none'; orbitalStabilityTimer = 0; return; } const vecRocketToMoonX = moon.x - rocket.x; const vecRocketToMoonY = moon.y - rocket.y; const distRocketToMoonSq = vecRocketToMoonX * vecRocketToMoonX + vecRocketToMoonY * vecRocketToMoonY; if (distRocketToMoonSq > 1) { const distRocketToMoon = Math.sqrt(distRocketToMoonSq); const moonForceMagnitude = rocketConfig.gravityMoonConstant / distRocketToMoonSq; rocket.vx += (vecRocketToMoonX / distRocketToMoon) * moonForceMagnitude; rocket.vy += (vecRocketToMoonY / distRocketToMoon) * moonForceMagnitude; } const vecMoonToRocketX = rocket.x - moon.x; const vecMoonToRocketY = rocket.y - moon.y; const currentDistToMoonCenter = Math.sqrt(vecMoonToRocketX * vecMoonToRocketX + vecMoonToRocketY * vecMoonToRocketY); const angleMoonToRocket = Math.atan2(vecMoonToRocketY, vecMoonToRocketX); const targetTangentAngle = angleMoonToRocket + Math.PI / 2; const targetVx = Math.cos(targetTangentAngle) * rocketConfig.targetMoonOrbitSpeed; const targetVy = Math.sin(targetTangentAngle) * rocketConfig.targetMoonOrbitSpeed; rocket.vx += (targetVx - rocket.vx) * rocketConfig.orbitCorrectionFactor; rocket.vy += (targetVy - rocket.vy) * rocketConfig.orbitCorrectionFactor; const errorDist = currentDistToMoonCenter - rocketConfig.moonOrbitDistance; if (currentDistToMoonCenter > 0.1) { rocket.vx -= (vecMoonToRocketX / currentDistToMoonCenter) * errorDist * rocketConfig.radialCorrectionFactor; rocket.vy -= (vecMoonToRocketY / currentDistToMoonCenter) * errorDist * rocketConfig.radialCorrectionFactor; } rocket.vx *= rocketConfig.orbitDampingFactor; rocket.vy *= rocketConfig.orbitDampingFactor; rocket.x += rocket.vx; rocket.y += rocket.vy; if (Math.sqrt(rocket.vx*rocket.vx + rocket.vy*rocket.vy) > 0.01) { rocket.angle = Math.atan2(rocket.vy, rocket.vx); } updateRocketTrail(); }
+        function updateCollectingSamples() { if (gameState !== 'collectingSamples' || !rocket.visible) return; const vecRocketToMoonX = moon.x - rocket.x; const vecRocketToMoonY = moon.y - rocket.y; const distRocketToMoonSq = vecRocketToMoonX * vecRocketToMoonX + vecRocketToMoonY * vecRocketToMoonY; if (distRocketToMoonSq > 1) { const distRocketToMoon = Math.sqrt(distRocketToMoonSq); const moonForceMagnitude = rocketConfig.gravityMoonConstant / distRocketToMoonSq; rocket.vx += (vecRocketToMoonX / distRocketToMoon) * moonForceMagnitude; rocket.vy += (vecRocketToMoonY / distRocketToMoon) * moonForceMagnitude; } const vecMoonToRocketX = rocket.x - moon.x; const vecMoonToRocketY = rocket.y - moon.y; const currentDistToMoonCenter = Math.sqrt(vecMoonToRocketX * vecMoonToRocketX + vecMoonToRocketY * vecMoonToRocketY); const angleMoonToRocket = Math.atan2(vecMoonToRocketY, vecMoonToRocketX); const targetTangentAngle = angleMoonToRocket + Math.PI / 2; const targetVx = Math.cos(targetTangentAngle) * rocketConfig.targetMoonOrbitSpeed; const targetVy = Math.sin(targetTangentAngle) * rocketConfig.targetMoonOrbitSpeed; rocket.vx += (targetVx - rocket.vx) * rocketConfig.orbitCorrectionFactor; rocket.vy += (targetVy - rocket.vy) * rocketConfig.orbitCorrectionFactor; const errorDist = currentDistToMoonCenter - rocketConfig.moonOrbitDistance; if (currentDistToMoonCenter > 0.1) { rocket.vx -= (vecMoonToRocketX / currentDistToMoonCenter) * errorDist * rocketConfig.radialCorrectionFactor; rocket.vy -= (vecMoonToRocketY / currentDistToMoonCenter) * errorDist * rocketConfig.radialCorrectionFactor; } rocket.vx *= rocketConfig.orbitDampingFactor; rocket.vy *= rocketConfig.orbitDampingFactor; rocket.x += rocket.vx; rocket.y += rocket.vy; if (Math.sqrt(rocket.vx*rocket.vx + rocket.vy*rocket.vy) > 0.01) { rocket.angle = Math.atan2(rocket.vy, rocket.vx); } rocket.sampleCollectionProgress++; const progressPercent = (rocket.sampleCollectionProgress / rocketConfig.sampleCollectionDuration) * 100; sampleProgressBar.style.width = `${progressPercent}%`; if (rocket.sampleCollectionProgress >= rocketConfig.sampleCollectionDuration) { gameState = 'returningToEarth'; sampleCollectionUI.style.display = 'none'; showTimedMessage("Samples Collected! Return to Earth.", false, 2500); } updateRocketTrail(); }
+        function updateLandingSequence() { if (gameState !== 'landingOnEarth' || !rocket.visible) return; rocket.isThrusting = true; const dxEarth = earth.x - rocket.x; const dyEarth = earth.y - rocket.y; const distToEarthCenter = Math.sqrt(dxEarth * dxEarth + dyEarth * dyEarth); const targetAngleToEarth = Math.atan2(dyEarth, dxEarth); const targetLandedX = earth.x - Math.cos(targetAngleToEarth) * (earth.radius + rocketConfig.satelliteHeight / 2 + 1); const targetLandedY = earth.y - Math.sin(targetAngleToEarth) * (earth.radius + rocketConfig.satelliteHeight / 2 + 1); const desiredAngle = targetAngleToEarth + Math.PI / 2; let angleDiff = desiredAngle - rocket.angle; while (angleDiff > Math.PI) angleDiff -= Math.PI * 2; while (angleDiff < -Math.PI) angleDiff += Math.PI * 2; if (Math.abs(angleDiff) > 0.01) { rocket.angle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), rocketConfig.landingRotationSpeed); } const vecToTargetX = targetLandedX - rocket.x; const vecToTargetY = targetLandedY - rocket.y; const distToTarget = Math.sqrt(vecToTargetX*vecToTargetX + vecToTargetY*vecToTargetY); if (distToTarget > 0.5) { const moveSpeed = Math.min(distToTarget, rocketConfig.landingDescentSpeed); rocket.vx = (vecToTargetX / distToTarget) * moveSpeed; rocket.vy = (vecToTargetY / distToTarget) * moveSpeed; } else { rocket.vx = 0; if (distToEarthCenter > earth.radius + rocketConfig.satelliteHeight / 2) { rocket.vy = Math.min(rocketConfig.landingDescentSpeed * 0.1, dyEarth); } else { rocket.vy = 0; } } if (distToEarthCenter > earth.radius + rocketConfig.satelliteHeight / 2 + 2) { const gravityMagnitude = rocketConfig.gravityEarth * 0.1; rocket.vx += (dxEarth / distToEarthCenter) * gravityMagnitude; rocket.vy += (dyEarth / distToEarthCenter) * gravityMagnitude; } rocket.x += rocket.vx; rocket.y += rocket.vy; const distToSurface = distToEarthCenter - earth.radius - rocketConfig.satelliteHeight / 2; if (distToSurface < 1) { rocket.visible = false; gameState = 'missionSuccess'; const finalTime = Math.floor((Date.now() - missionStartTime) / 1000); const fuelBonus = Math.round(rocket.fuel * scoreConfig.fuelBonusPerUnit); const timePenalty = finalTime * scoreConfig.timePenaltyPerSecond; let finalScore = scoreConfig.baseScore + fuelBonus - timePenalty; finalScore = Math.max(0, Math.round(finalScore)); if (finalScore > highScore) { highScore = finalScore; localStorage.setItem(scoreConfig.localStorageKey, highScore); } let successMsg = `Mission Success! Samples Returned!<br>Time: ${finalTime}s<br>Fuel Bonus: +${fuelBonus}<br>Time Penalty: -${timePenalty}<br><strong>Final Score: ${finalScore}</strong><br>High Score: ${highScore}`; createParticles(rocket.x, rocket.y, explosionConfig.particleCount / 2, explosionConfig.particleSpeed / 3, explosionConfig.particleLifespan, [150,255,150], 'separation'); showTimedMessage(successMsg, true, 0, true); } updateRocketTrail(); }
+        function updateFuelDisplay() { const currentMaxFuel = rocket.currentStage === 1 ? rocketConfig.maxFuelStage1 : rocketConfig.maxFuelStage2; const fuelPercentage = (rocket.fuel / currentMaxFuel) * 100; fuelDisplay.textContent = `Fuel: ${Math.max(0, Math.round(fuelPercentage))}%`; if (fuelPercentage < 20) { fuelDisplay.style.color = '#EF4444'; } else if (fuelPercentage < 50) { fuelDisplay.style.color = '#F59E0B'; } else { fuelDisplay.style.color = '#e0e0e0'; } }
+        function updateStageDisplay() { stageDisplay.textContent = `Stage: ${rocket.currentStage}`; }
+        function showTimedMessage(text, isSuccess, duration = 3000, permanentIfWinLoss = false) { if (messageTimeoutId) clearTimeout(messageTimeoutId); messageDisplay.innerHTML = text; messageDisplay.style.color = isSuccess ? '#22C55E' : '#EF4444'; messageDisplay.style.opacity = '1'; messageDisplay.style.display = 'block'; if (permanentIfWinLoss && (isSuccess || gameState === 'gameOver')) { if (!text.includes("Press R to Restart")) { messageDisplay.innerHTML += "<br><small>(Press R to Restart)</small>"; } } if (duration > 0 && !(permanentIfWinLoss && (isSuccess || gameState === 'gameOver'))) { messageTimeoutId = setTimeout(() => { messageDisplay.style.opacity = '0'; setTimeout(() => { if (messageDisplay.style.opacity === '0') messageDisplay.style.display = 'none'; }, 500); }, duration); } }
+
+        // --- Main Loop ---
+        function gameLoop() {
+            ctx.fillStyle = '#00001a'; ctx.fillRect(0, 0, width, height);
+            let viewOffsetX = 0; let viewOffsetY = 0;
+            if (gameState !== 'beforeStart' && rocket) { viewOffsetX = rocket.x - width / 2; viewOffsetY = rocket.y - height / 2; }
+            drawParallaxBackground(viewOffsetX, viewOffsetY); 
+            if (gameState !== 'beforeStart') { 
+                moon.angle += moonOrbitSpeed / 5; if (moon.angle > Math.PI * 2) moon.angle -= Math.PI * 2;
+                updateMoonPosition();
+                drawEarth(); drawMoon();
+                updateAsteroids(); drawAsteroids();
+                updateBooster(); drawBooster();
+                if (gameState === 'playing' || gameState === 'returningToEarth') { updateRocket(); checkCollisions(); }
+                else if (gameState === 'orbitingMoon') { updateRocketOrbitingMoon(); }
+                else if (gameState === 'collectingSamples') { updateCollectingSamples(); if (rocket.visible) checkCollisions(); }
+                else if (gameState === 'landingOnEarth') { updateLandingSequence(); if (rocket.visible) checkCollisions(); }
+                else if (gameState === 'gameOver' || gameState === 'missionSuccess') { if (booster && booster.opacity > 0) checkCollisions(); }
+                if (missionStartTime > 0 && gameState !== 'gameOver' && gameState !== 'missionSuccess') { elapsedTime = Math.floor((Date.now() - missionStartTime) / 1000); timeDisplay.textContent = `Time: ${elapsedTime}s`; }
+                drawSunGlare(viewOffsetX, viewOffsetY); 
+                drawRocketTrail(); drawRocket(); 
+                updateParticles(); drawParticles(); 
+            } else { drawEarth(); updateMoonPosition(); drawMoon(); }
+            requestAnimationFrame(gameLoop);
+        } 
+
+        // --- Event Listeners ---
+        startMissionButton.addEventListener('click', () => { instructionOverlay.style.display = 'none'; initializeGameElements(); missionStartTime = Date.now(); gameState = 'playing'; });
+        window.addEventListener('keydown', (e) => { if (e.code === 'KeyR') { instructionOverlay.style.display = 'none'; initializeGameElements(); missionStartTime = Date.now(); gameState = 'playing'; return; } if (gameState === 'beforeStart') return; if (gameState === 'collectingSamples') return; if (gameState === 'landingOnEarth') return; if (gameState === 'gameOver' || gameState === 'missionSuccess') return; if (e.code === 'ArrowLeft') keys.left = true; if (e.code === 'ArrowRight') keys.right = true; if (e.code === 'Space') { keys.space = true; e.preventDefault(); } if (e.code === 'KeyS') keys.s = true; });
+        window.addEventListener('keyup', (e) => { if (e.code === 'ArrowLeft') keys.left = false; if (e.code === 'ArrowRight') keys.right = false; if (e.code === 'Space') keys.space = false; if (e.code === 'KeyS') keys.s = false; });
+        window.addEventListener('resize', () => { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; if (starLayers.length > 0) generateStarLayers(); if(earth) earth.x = width/2; earth.y = height/2; });
+
+        // Start
+        window.onload = () => {
+            setupCanvas();
+            rocketConfig.targetMoonOrbitSpeed = Math.sqrt(rocketConfig.gravityMoonConstant / rocketConfig.moonOrbitDistance);
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
